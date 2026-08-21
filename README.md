@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -55,11 +53,11 @@
         <p>元の3択問題を、<strong>2択問題</strong>にアレンジしました！<br>カメラを使って、顔の動きで答えるアプリです。</p>
         <div style="background: white; padding: 20px; border-radius: 10px; max-width: 500px; margin: 0 auto; text-align: left;">
             <strong>💡 あそびかた：</strong><br>
-            問題が出たら、<strong>5秒以内</strong>に答えを選びます。<br><br>
-            😮 <strong>左の答え</strong>だと思ったら：<br>　👉 <strong>「口を大きくあける」</strong><br><br>
-            😐 <strong>右の答え</strong>だと思ったら：<br>　👉 <strong>「口をとじて待つ」</strong><br><br>
+            問題と選択肢の読み上げが終わったあと、<strong>7秒以内</strong>に答えを選びます。<br><br>
+            😮 <strong>左の答え</strong>だと思ったら：<br> 👉 <strong>「口を大きくあける」</strong><br><br>
+            😐 <strong>右の答え</strong>だと思ったら：<br> 👉 <strong>「口をとじて待つ」</strong><br><br>
             🔊 <strong>問題の読み上げ機能つき！</strong><br>
-            iPadの音量を出しておくと、問題文を音声で読み上げます。
+            iPadの音量を出しておくと、問題文と選択肢を音声で読み上げます。
         </div>
         <button id="start-btn">スタート！</button>
     </div>
@@ -69,7 +67,7 @@
         <div id="video-container" class="no-print">
             <video id="video" autoplay playsinline></video>
         </div>
-        <div id="timer-container" class="no-print">のこり <span id="timer">5.0</span> 秒</div>
+        <div id="timer-container" class="no-print">のこり <span id="timer">7.0</span> 秒</div>
         <div class="question no-print" id="question-text">ここに問題が出ます</div>
         <div class="options no-print">
             <div class="option option-open" id="opt-1">
@@ -104,7 +102,7 @@
 
         let currentQIndex = 0;
         let isMouthOpen = false;
-        let timer = 5.0;
+        let timer = 7.0;
         let timerInterval;
         let gameActive = false;
         let score = 0;
@@ -120,7 +118,7 @@
         const resultSub = document.getElementById('result-sub');
 
         // 音声読み上げ用の関数
-        function speakText(text) {
+        function speakText(text, onEndCallback) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); // 前の音声を止める
                 
@@ -129,8 +127,20 @@
                 
                 const utterance = new SpeechSynthesisUtterance(speechText);
                 utterance.lang = 'ja-JP';
-                utterance.rate = 1.2; // 5秒で読み切れるように少し早めに設定
+                utterance.rate = 0.9; // 読み上げ速度をゆっくりに調整
+                
+                // 読み上げが終わった時、またはエラーになった時にタイマーを進める
+                utterance.onend = function() {
+                    if (onEndCallback) onEndCallback();
+                };
+                utterance.onerror = function() {
+                    if (onEndCallback) onEndCallback();
+                };
+                
                 window.speechSynthesis.speak(utterance);
+            } else {
+                // 音声読み上げが使えないブラウザの場合はすぐにコールバックを呼ぶ
+                if (onEndCallback) onEndCallback();
             }
         }
 
@@ -224,7 +234,7 @@
                     <div id="print-area" style="padding: 40px; background: white; border: 2px solid #ccc; border-radius: 10px; margin-bottom: 20px;">
                         <h2 style="font-size:32px; color: #333; margin-top: 0;">アイヌ文化まとめテスト</h2>
                         <div style="text-align: left; font-size: 24px; margin: 20px 0; border-bottom: 2px dashed #999; padding-bottom: 10px;">
-                            ＿＿年 ＿＿組　名前 ＿＿＿＿＿＿＿＿＿＿＿＿＿
+                            ＿＿年 ＿＿組 名前 ＿＿＿＿＿＿＿＿＿＿＿＿＿
                         </div>
                         <h3 style="font-size:28px; color: #333; margin-bottom: 10px;">結果発表</h3>
                         <p style="font-size:32px; margin-bottom: 0;">10問中 <span style="font-size:56px; font-weight:bold; color: #d33682;">${score}</span> 問 正解でした！🎉</p>
@@ -242,13 +252,19 @@
             document.getElementById('question-text').textContent = q.q;
             document.getElementById('opt-1-text').textContent = q.o1;
             document.getElementById('opt-2-text').textContent = q.o2;
-            timer = 5.0;
+            timer = 7.0;
             timerElement.textContent = timer.toFixed(1);
             
-            // 問題文を読み上げる
-            speakText(q.q);
-
-            gameActive = true;
+            // 読み上げ中はタイマーをストップしておく
+            gameActive = false;
+            document.getElementById('timer-container').style.color = "#93a1a1"; // 読み上げ中はグレーに
+            
+            // 問題文と選択肢を読み上げ、終わったらタイマースタート
+            const textToSpeak = q.q + "。口をあける、" + q.o1 + "。口をとじる、" + q.o2;
+            speakText(textToSpeak, () => {
+                gameActive = true;
+                document.getElementById('timer-container').style.color = "#586e75"; // 色を元に戻す
+            });
         }
 
         function startGameLoop() {
