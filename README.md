@@ -2,321 +2,339 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アイヌ文化まとめテスト（顔認識アプリ）</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>みんなの せんきょ・とうひょうクイズ（タッチ版）</title>
     <style>
-        body { font-family: 'Hiragino Maru Gothic ProN', 'Comic Sans MS', sans-serif; background-color: #fdf6e3; margin: 0; padding: 20px; text-align: center; }
-        h1 { color: #d33682; margin-bottom: 10px; }
-        #game-board { display: none; max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        #video-container { position: relative; width: 320px; height: 240px; margin: 0 auto 20px; border-radius: 10px; overflow: hidden; transform: scaleX(-1); background-color: #eee; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .question { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #073642; line-height: 1.4; }
-        .options { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
-        .option { flex: 1; padding: 15px; font-size: 20px; border-radius: 10px; border: 4px solid #eee; transition: all 0.2s; }
-        .option-open { background-color: #ffe6e6; border-color: #ffb3b3; color: #cc0000; }
-        .option-close { background-color: #e6f2ff; border-color: #b3d9ff; color: #0066cc; }
-        .selected.option-open { border-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.5); transform: scale(1.05); background-color: #ffcccc;}
-        .selected.option-close { border-color: #0066cc; box-shadow: 0 0 15px rgba(0,102,204,0.5); transform: scale(1.05); background-color: #cce0ff;}
-        #timer-container { font-size: 20px; font-weight: bold; color: #586e75; margin-bottom: 10px; }
-        #timer { font-size: 36px; color: #dc322f; }
-        #status { font-size: 16px; color: #586e75; margin-bottom: 15px; }
-        #start-btn { font-size: 24px; padding: 15px 40px; background-color: #2aa198; color: white; border: none; border-radius: 30px; cursor: pointer; margin-top:20px; font-weight:bold;}
-        #start-btn:hover { background-color: #258b82; }
-        #result-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; font-size: 60px; font-weight: bold; align-items: center; justify-content: center; z-index: 100; flex-direction: column;}
-        #result-sub { font-size: 30px; margin-top: 20px; }
-        .emoji { font-size: 40px; margin-bottom: 10px; }
+        /* 📱 iPad・タブレット用スタイル設定 */
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body { font-family: "Hiragino Sans", "Meiryo", sans-serif; text-align: center; background-color: #f0f4f8; margin: 0; padding: 20px; color: #333; user-select: none; -webkit-user-select: none; }
+        
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        /* ❓ 問題文表示エリア */
+        #question { font-size: 34px; font-weight: bold; margin: 20px 0; line-height: 1.5; padding: 20px; background: white; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); min-height: 140px; display: flex; align-items: center; justify-content: center; }
+        
+        /* 🔘 タッチボタンのコンテナ */
+        .choices-container { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
+        
+        /* 👆 タッチしやすい巨大ボタン */
+        .touch-btn { 
+            flex: 1;
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center;
+            padding: 30px 15px; 
+            font-size: 32px; 
+            font-weight: bold; 
+            border: 6px solid #1976d2; 
+            border-radius: 25px; 
+            background-color: #ffffff; 
+            color: #1976d2;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            transition: transform 0.1s, background-color 0.2s;
+            min-height: 180px;
+            line-height: 1.3;
+        }
 
-        /* 結果リストのデザイン */
-        .result-list { text-align: left; font-size: 18px; line-height: 1.5; margin-top: 20px; max-height: 50vh; overflow-y: auto; padding-right: 10px; border-top: 2px dashed #ccc; padding-top: 20px;}
-        .result-item { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; page-break-inside: avoid; }
-        .result-q { font-weight: bold; margin-bottom: 5px; color: #333; }
-        .result-ans { color: #555; }
-        .mark-correct { color: #dc322f; font-weight: bold; }
-        .mark-incorrect { color: #268bd2; font-weight: bold; }
+        /* タッチした瞬間の凹むアニメーション */
+        .touch-btn:active {
+            transform: scale(0.96);
+            background-color: #e3f2fd;
+        }
 
-        /* 印刷用のスタイル設定 */
+        /* 正解・不正解時のボタンカラー */
+        .touch-btn.correct-btn { background-color: #4caf50 !important; border-color: #2e7d32 !important; color: white !important; }
+        .touch-btn.incorrect-btn { background-color: #f44336 !important; border-color: #c62828 !important; color: white !important; }
+        .touch-btn:disabled { opacity: 0.7; cursor: default; }
+
+        /* 💬 ナビゲーション・状態メッセージ */
+        #message { font-size: 32px; margin-top: 25px; font-weight: bold; height: 45px; color: #ff5722; }
+
+        /* 🚀 スタート画面ボタン */
+        #start-btn { font-size: 38px; font-weight: bold; padding: 25px 60px; background-color: #ff5722; color: white; border: none; border-radius: 30px; cursor: pointer; box-shadow: 0 8px 20px rgba(255,87,34,0.3); margin-top: 50px; }
+        #start-btn:active { transform: scale(0.95); }
+
+        /* 🏆 結果発表・印刷用エリア */
+        #result-section { display: none; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: left; }
+        .result-title { font-size: 40px; color: #ff5722; font-weight: bold; margin-bottom: 20px; text-align: center; }
+        .result-score { font-size: 50px; color: #4caf50; font-weight: bold; margin-bottom: 10px; text-align: center; }
+        .result-details { font-size: 26px; color: #555; margin-bottom: 30px; text-align: center; }
+        
+        .result-table { width: 100%; border-collapse: collapse; margin-top: 25px; font-size: 18px; }
+        .result-table th, .result-table td { border: 2px solid #ccc; padding: 10px; text-align: center; }
+        .result-table th { background-color: #f2f2f2; }
+        .is-correct { color: #4caf50; font-weight: bold; }
+        .is-incorrect { color: #f44336; font-weight: bold; background-color: #ffebee; }
+
+        .print-btn-container { text-align: center; margin-top: 30px; }
+        .print-btn { font-size: 26px; font-weight: bold; padding: 15px 40px; background-color: #00bcd4; color: white; border: none; border-radius: 15px; cursor: pointer; }
+
         @media print {
-            body { background-color: white; padding: 0; margin: 0; }
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; border: none !important; box-shadow: none !important; margin: 0 !important; }
-            .no-print { display: none !important; }
-            .result-list { max-height: none; overflow: visible; border-top: 2px dashed #999; }
+            body { background: white; color: black; padding: 0; }
+            #question, .choices-container, #message, #start-btn, .print-btn-container { display: none !important; }
+            #result-section { display: block !important; border: none; box-shadow: none; padding: 0; }
         }
     </style>
 </head>
 <body>
-    <h1 class="no-print">アイヌ文化まとめテスト<br>〜お口でポン！〜</h1>
-    <div id="start-screen" class="no-print">
-        <p>元の3択問題を、<strong>2択問題</strong>にアレンジしました！<br>カメラを使って、顔の動きで答えるアプリです。</p>
-        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 500px; margin: 0 auto; text-align: left;">
-            <strong>💡 あそびかた：</strong><br>
-            問題と選択肢の読み上げが終わったあと、<strong>7秒以内</strong>に答えを選びます。<br><br>
-            😮 <strong>左の答え</strong>だと思ったら：<br> 👉 <strong>「口を大きくあける」</strong><br><br>
-            😐 <strong>右の答え</strong>だと思ったら：<br> 👉 <strong>「口をとじて待つ」</strong><br><br>
-            🔊 <strong>問題の読み上げ機能つき！</strong><br>
-            iPadの音量を出しておくと、問題文と選択肢を音声で読み上げます。
-        </div>
-        <button id="start-btn">スタート！</button>
-    </div>
 
-    <div id="game-board">
-        <div id="status" class="no-print">カメラの準備中... 顔を画面にうつしてね！</div>
-        <div id="video-container" class="no-print">
-            <video id="video" autoplay playsinline></video>
-        </div>
-        <div id="timer-container" class="no-print">のこり <span id="timer">7.0</span> 秒</div>
-        <div class="question no-print" id="question-text">ここに問題が出ます</div>
-        <div class="options no-print">
-            <div class="option option-open" id="opt-1">
-                <div class="emoji">😮</div>
-                口をあける<br><br><strong id="opt-1-text" style="font-size:24px;"></strong>
-            </div>
-            <div class="option option-close" id="opt-2">
-                <div class="emoji">😐</div>
-                口をとじる<br><br><strong id="opt-2-text" style="font-size:24px;"></strong>
-            </div>
-        </div>
-    </div>
+    <div class="container">
+        <div id="question">👆 下のボタンを押してクイズをはじめてね！</div>
+        
+        <button id="start-btn" onclick="startQuiz()">タッチしてスタート！</button>
 
-    <div id="result-overlay" class="no-print">
-        <div id="result-main">⭕️ 正解！</div>
-        <div id="result-sub"></div>
+        <div class="choices-container" id="choicesSection" style="display: none;">
+            <button class="touch-btn" id="btn0" onclick="checkAnswer(0)">-</button>
+            <button class="touch-btn" id="btn1" onclick="checkAnswer(1)">-</button>
+        </div>
+
+        <div id="message"></div>
+
+        <!-- 結果発表画面 -->
+        <div id="result-section">
+            <div class="result-title">🎉 クイズ お疲れ様でした！</div>
+            <hr style="border: 1px solid #ccc; margin-bottom: 20px;">
+            <div id="print-date" style="font-size: 20px; text-align: right; color: #666; margin-bottom: 20px;"></div>
+            <div class="result-score" id="resRate">正答率：0％</div>
+            <div class="result-details" id="resCount">0問 中 0問 せいかい！</div>
+            
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">問題</th>
+                        <th style="width: 40%;">問題の内容</th>
+                        <th style="width: 20%;">選んだ答え</th>
+                        <th style="width: 20%;">正しい答え</th>
+                        <th style="width: 10%;">結果</th>
+                    </tr>
+                </thead>
+                <tbody id="result-table-body">
+                </tbody>
+            </table>
+
+            <div style="font-size: 22px; margin-top: 30px; text-align: left; line-height: 1.8;">
+                【 実施記録 】<br>
+                ・ お名前：___________________________<br>
+                ・ 先生やスタッフからのコメント：<br>
+                <div style="border-bottom: 1px dashed #999; margin-top: 35px;"></div>
+                <div style="border-bottom: 1px dashed #999; margin-top: 35px;"></div>
+            </div>
+            
+            <div class="print-btn-container">
+                <button class="print-btn" onclick="window.print()">🖨️ 印刷・PDF保存する</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        const questions = [
-            { q: "1. アイヌの言葉で「こんにちは」などのあいさつは？", o1: "イランカラㇷ゚テ", o2: "アロハ", ans: 1 },
-            { q: "2. ヒグマのことを「山の神様」という意味で何と呼ぶ？", o1: "キムンカムイ", o2: "クマモン", ans: 1 },
-            { q: "3. 木や草を使って建てられた伝統的な家は？", o1: "テント", o2: "チセ", ans: 2 },
-            { q: "4. 口にくわえて、糸を引っ張って音を出す楽器は？", o1: "ムックリ", o2: "ギター", ans: 1 },
-            { q: "5. 魔除けの意味があるデザインは？", o1: "水玉もよう", o2: "アイヌもよう", ans: 2 },
-            { q: "6. 伝統的な服（アットゥㇱなど）は何の木の皮から作られる？", o1: "オヒョウ", o2: "サクラ", ans: 1 },
-            { q: "7. 動物や自然など、大切なものを何と呼んで感謝した？", o1: "オバケ", o2: "カムイ", ans: 2 },
-            { q: "8. サケや野菜を入れて塩味などで煮込んだ温かい汁物は？", o1: "オハウ", o2: "カレー", ans: 1 },
-            { q: "9. みんなで集まって、歌ったり踊ったりするものを何という？", o1: "盆おどり", o2: "古式舞踊", ans: 2 },
-            { q: "10. アイヌの人たちが古くからたくさん住んでいたのは？", o1: "北海道", o2: "沖縄", ans: 1 }
+        // 全20問データ（かっこ表記なしの綺麗で読みやすいテキスト）
+        const quizData = [
+            { q: "おうちの人ではなく、投票所にいる2名のスタッフさんが手助けしてくれる特別なルールは？", c: ["代理投票", "おうち投票"], ans: 0 },
+            { q: "代理投票のとき、受付でスタッフさんに何と言えばいいでしょう？", c: ["「かわりに書いてください」", "「代理投票おねがいします」"], ans: 1 },
+            { q: "だれを応援したいかをスタッフさんに伝えるとき、どうすればよいでしょう？", c: ["指をさしたりお話をして伝える", "心のなかで強く念じる"], ans: 0 },
+            { q: "スタッフさんが代わりに名前を書くとき、もうひとりのスタッフさんは何をしているでしょう？", c: ["おやつを食べている", "まちがいがないか見ている"], ans: 1 },
+            { q: "スタッフさんに書いてもらったあと、さいごに投票箱へ紙を入れるのはだれでしょう？", c: ["じぶん", "スタッフさん"], ans: 0 },
+            { q: "投票をするとき、守らなければいけない大切なお約束はどちらでしょう？", c: ["だれの紙が一番きれいか見せ合う", "ほかの人の紙を見たり邪魔をしない"], ans: 1 },
+            { q: "大好きなアイドルやキャラクターを選ぶときは、どんな理由で選んでいいでしょう？", c: ["じぶんの「大すき！」で選ぶ", "みんなのための「やくそく」で選ぶ"], ans: 0 },
+            { q: "「市長さん」などの、まちのリーダーを選ぶときは、何で選ぶのが正しいでしょう？", c: ["ダンスが上手かどうか", "みんなのための「やくそく」"], ans: 1 },
+            { q: "まちのリーダーを選ぶということは、どういうことでしょう？", c: ["代わりに「こうなったらいいな」をやってくれる人を探す", "一番歌がうまい人を選ぶ"], ans: 0 },
+            { q: "選挙で投票する人を選ぶとき、まず最初にすることは何でしょう？", c: ["直感で決める", "情報を集める"], ans: 1 },
+            { q: "選挙で「えらぶ人」になれるのは、何歳以上のおとなの人たちでしょう？", c: ["18歳以上", "20歳以上"], ans: 0 },
+            { q: "投票所入場券は、どこに届くでしょう？", c: ["市役所", "家"], ans: 1 },
+            { q: "代理投票が必要な人は、どんな人でしょう？", c: ["手が痛かったり名前を書くのが難しい人", "ただ文字を書くのがめんどくさい人"], ans: 0 },
+            { q: "選挙で投票数が同じだった場合、何で決めるでしょう？", c: ["くじ引き", "じゃんけん"], ans: 0 },
+            { q: "「アイドル」を選ぶときは、何で選ぶでしょう？", c: ["じぶんの「好き」", "みんなのための「約束」"], ans: 0 },
+            { q: "「市長さん」を選ぶときは、何で選ぶでしょう？", c: ["じぶんの「好き」", "みんなのための「約束」"], ans: 1 },
+            { q: "みんなで何かを決めるとき、数が多いほうの意見にするきめ方を何というでしょう？", c: ["たすうけつ", "ジャンケン"], ans: 0 },
+            { q: "代理投票のとき、投票所でお手伝いをしてくれるスタッフさんは何人でしょう？", c: ["10人", "2人"], ans: 1 },
+            { q: "おうちの人に代わりに名前を書いてもらって投票することはできるでしょうか？", c: ["できない", "できる"], ans: 0 },
+            { q: "自分の必要な支援を書いて、投票所に持って行くことができる紙を何というでしょう？", c: ["図書カード", "選挙支援カード"], ans: 1 }
         ];
 
-        let currentQIndex = 0;
-        let isMouthOpen = false;
-        let timer = 7.0;
-        let timerInterval;
-        let gameActive = false;
-        let score = 0;
-        let userResults = []; // 正解・不正解の記録用配列
+        let currentId = 0;
+        let isAnswering = false;
+        let correctCount = 0;
+        let userRecords = [];
 
-        const videoElement = document.getElementById('video');
-        const statusElement = document.getElementById('status');
-        const opt1Element = document.getElementById('opt-1');
-        const opt2Element = document.getElementById('opt-2');
-        const timerElement = document.getElementById('timer');
-        const resultOverlay = document.getElementById('result-overlay');
-        const resultMain = document.getElementById('result-main');
-        const resultSub = document.getElementById('result-sub');
+        const qChange = document.getElementById("question");
+        const btn0 = document.getElementById("btn0");
+        const btn1 = document.getElementById("btn1");
+        const msg = document.getElementById("message");
+        const startBtn = document.getElementById("start-btn");
+        const choicesSection = document.getElementById("choicesSection");
 
-        // 音声読み上げ用の関数
-        function speakText(text, onEndCallback) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // 前の音声を止める
-                
-                // 「1. 」などの最初の数字を読み上げから省くと自然になります
-                let speechText = text.replace(/^[0-9]+\.\s*/, '');
-                
-                const utterance = new SpeechSynthesisUtterance(speechText);
-                utterance.lang = 'ja-JP';
-                utterance.rate = 0.9; // 読み上げ速度をゆっくりに調整
-                
-                // 読み上げが終わった時、またはエラーになった時にタイマーを進める
-                utterance.onend = function() {
-                    if (onEndCallback) onEndCallback();
-                };
-                utterance.onerror = function() {
-                    if (onEndCallback) onEndCallback();
-                };
-                
-                window.speechSynthesis.speak(utterance);
-            } else {
-                // 音声読み上げが使えないブラウザの場合はすぐにコールバックを呼ぶ
-                if (onEndCallback) onEndCallback();
-            }
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function cleanTextForSpeech(text) {
+            if (!text) return "";
+            return text.replace(/上手/g, 'じょうず');
         }
 
-        document.getElementById('start-btn').addEventListener('click', async () => {
-            // iOS等で音声を出すための初期化処理（ダミー音声を再生）
-            if ('speechSynthesis' in window) {
-                const dummy = new SpeechSynthesisUtterance('');
-                window.speechSynthesis.speak(dummy);
-            }
-
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('game-board').style.display = 'block';
-            await startCamera();
-        });
-
-        async function startCamera() {
-            const faceMesh = new FaceMesh({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }});
-            faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-            faceMesh.onResults(onResults);
-
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await faceMesh.send({image: videoElement});
-                },
-                width: 320,
-                height: 240
-            });
-            camera.start();
-        }
-
-        function onResults(results) {
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                statusElement.textContent = "🟢 顔を認識中！口を動かしてみてね。";
-                const landmarks = results.multiFaceLandmarks[0];
-                
-                const upperLip = landmarks[13];
-                const lowerLip = landmarks[14];
-                const faceTop = landmarks[10];
-                const faceBottom = landmarks[152];
-
-                const lipDistance = Math.abs(lowerLip.y - upperLip.y);
-                const faceHeight = Math.abs(faceBottom.y - faceTop.y);
-                const ratio = lipDistance / faceHeight;
-
-                isMouthOpen = ratio > 0.12; // 閾値を0.05から0.12に上げて、少し開いている状態を無視するように調整
-
-                if (isMouthOpen) {
-                    opt1Element.classList.add('selected');
-                    opt2Element.classList.remove('selected');
-                } else {
-                    opt1Element.classList.remove('selected');
-                    opt2Element.classList.add('selected');
-                }
-
-                if (!gameActive && currentQIndex < questions.length && !timerInterval) {
-                    startGameLoop();
-                }
-            } else {
-                statusElement.textContent = "⚠️ 顔が見つかりません。明るい場所でカメラを見てね。";
-            }
-        }
-
-        function loadQuestion() {
-            if (currentQIndex >= questions.length) {
-                // 結果リストのHTMLを生成
-                let resultListHTML = '<div class="result-list">';
-                userResults.forEach(r => {
-                    const markClass = r.isCorrect ? 'mark-correct' : 'mark-incorrect';
-                    const markText = r.isCorrect ? '⭕️ 正解' : '❌ 不正解';
-                    resultListHTML += `
-                        <div class="result-item">
-                            <div class="result-q">${r.qText}</div>
-                            <div class="result-ans">
-                                こたえ：<strong>${r.correctAnsText}</strong> 
-                                （あなたの結果：<span class="${markClass}">${markText}</span>）
-                            </div>
-                        </div>
-                    `;
-                });
-                resultListHTML += '</div>';
-
-                // テスト終了画面の生成
-                document.getElementById('game-board').innerHTML = `
-                    <div id="print-area" style="padding: 40px; background: white; border: 2px solid #ccc; border-radius: 10px; margin-bottom: 20px;">
-                        <h2 style="font-size:32px; color: #333; margin-top: 0;">アイヌ文化まとめテスト</h2>
-                        <div style="text-align: left; font-size: 24px; margin: 20px 0; border-bottom: 2px dashed #999; padding-bottom: 10px;">
-                            ＿＿年 ＿＿組 名前 ＿＿＿＿＿＿＿＿＿＿＿＿＿
-                        </div>
-                        <h3 style="font-size:28px; color: #333; margin-bottom: 10px;">結果発表</h3>
-                        <p style="font-size:32px; margin-bottom: 0;">10問中 <span style="font-size:56px; font-weight:bold; color: #d33682;">${score}</span> 問 正解でした！🎉</p>
-                        ${resultListHTML}
-                    </div>
-                    <div class="no-print">
-                        <button onclick="window.print()" style="font-size: 20px; padding: 15px 30px; border-radius: 30px; cursor:pointer; background-color:#2aa198; color:white; border:none; margin: 10px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🖨️ 記録を印刷する</button>
-                        <button onclick="location.reload()" style="font-size: 20px; padding: 15px 30px; border-radius: 30px; cursor:pointer; background-color:#cb4b16; color:white; border:none; margin: 10px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">もう一度あそぶ</button>
-                    </div>
-                `;
-                return;
-            }
-            
-            const q = questions[currentQIndex];
-            document.getElementById('question-text').textContent = q.q;
-            document.getElementById('opt-1-text').textContent = q.o1;
-            document.getElementById('opt-2-text').textContent = q.o2;
-            timer = 7.0;
-            timerElement.textContent = timer.toFixed(1);
-            
-            // 読み上げ中はタイマーをストップしておく
-            gameActive = false;
-            document.getElementById('timer-container').style.color = "#93a1a1"; // 読み上げ中はグレーに
-            
-            // 問題文と選択肢を読み上げ、終わったらタイマースタート
-            const textToSpeak = q.q + "。口をあける、" + q.o1 + "。口をとじる、" + q.o2;
-            speakText(textToSpeak, () => {
-                gameActive = true;
-                document.getElementById('timer-container').style.color = "#586e75"; // 色を元に戻す
-            });
-        }
-
-        function startGameLoop() {
-            loadQuestion();
-            timerInterval = setInterval(() => {
-                if(!gameActive) return;
-                timer -= 0.1;
-                timerElement.textContent = Math.max(0, timer).toFixed(1);
-                
-                if (timer <= 0) {
-                    gameActive = false;
-                    checkAnswer();
-                }
-            }, 100);
-        }
-
-        function checkAnswer() {
-            // 時間切れになったら音声を止める
+        function speakText(text, callback) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
+                
+                const cleanText = cleanTextForSpeech(text);
+                const uttr = new SpeechSynthesisUtterance(cleanText);
+                uttr.lang = 'ja-JP';
+                uttr.rate = 0.8; // 🐢 ゆっくりめ
+
+                uttr.onend = () => { if (callback) callback(); };
+                uttr.onerror = () => { if (callback) callback(); };
+                window.speechSynthesis.speak(uttr);
+            } else {
+                if (callback) callback();
+            }
+        }
+
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.3);
+                }, 150);
+            } else if (type === 'incorrect') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            }
+        }
+
+        function startQuiz() {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            startBtn.style.display = "none";
+            choicesSection.style.display = "flex";
+            loadQuestion(true);
+        }
+
+        function loadQuestion(isFirst = false) {
+            if (currentId >= quizData.length) {
+                showResults();
+                return;
             }
 
-            const selectedAns = isMouthOpen ? 1 : 2;
-            const q = questions[currentQIndex];
-            const correctAns = q.ans;
-            const isCorrect = (selectedAns === correctAns);
-            const correctText = correctAns === 1 ? q.o1 : q.o2;
+            // ボタンリセット
+            btn0.className = "touch-btn";
+            btn1.className = "touch-btn";
+            btn0.disabled = false;
+            btn1.disabled = false;
 
-            // 結果を保存する
-            userResults.push({
-                qText: q.q,
-                correctAnsText: correctText,
+            qChange.innerText = `第${currentId + 1}問：` + quizData[currentId].q;
+            btn0.innerText = quizData[currentId].c[0];
+            btn1.innerText = quizData[currentId].c[1];
+            
+            msg.innerText = "問題を聞いてね ⏳";
+            msg.style.color = "#888";
+            isAnswering = true;
+
+            const speechQuestion = `だい ${currentId + 1} もん。 ${quizData[currentId].q}`;
+            const speechChoices = `${quizData[currentId].c[0]}。 または、 ${quizData[currentId].c[1]}。`;
+            
+            // 1. 問題文を読み上げ
+            speakText(speechQuestion, () => {
+                // 2. 1秒の間（ポーズ）
+                setTimeout(() => {
+                    // 3. 選択肢を読み上げ
+                    speakText(speechChoices, () => {
+                        msg.innerText = "ボタンをタッチしてね！";
+                        msg.style.color = "#ff5722";
+                        isAnswering = false;
+                    });
+                }, 1000);
+            });
+        }
+
+        function checkAnswer(selected) {
+            if (isAnswering) return; 
+            isAnswering = true;
+            window.speechSynthesis.cancel(); // 読み上げ中断
+
+            btn0.disabled = true;
+            btn1.disabled = true;
+
+            const currentQ = quizData[currentId];
+            const isCorrect = (selected === currentQ.ans);
+
+            userRecords.push({
+                id: currentId + 1,
+                question: currentQ.q, 
+                userAns: currentQ.c[selected],
+                correctAns: currentQ.c[currentQ.ans],
                 isCorrect: isCorrect
             });
-            
-            resultOverlay.style.display = 'flex';
-            if (isCorrect) {
-                resultMain.textContent = "⭕️ 大正解！";
-                resultOverlay.style.background = "rgba(42, 161, 152, 0.9)";
-                score++;
+
+            if (selected === 0) {
+                btn0.classList.add(isCorrect ? "correct-btn" : "incorrect-btn");
             } else {
-                resultMain.textContent = "❌ ざんねん！";
-                resultOverlay.style.background = "rgba(220, 50, 47, 0.9)";
+                btn1.classList.add(isCorrect ? "correct-btn" : "incorrect-btn");
             }
-            
-            resultSub.textContent = `正解は「${correctText}」だよ！`;
+
+            if (isCorrect) {
+                msg.innerText = "せいかい！ ⭕️";
+                msg.style.color = "#4caf50";
+                correctCount++;
+                playSound('correct');
+                speakText("せいかい！");
+            } else {
+                msg.innerText = "ざんねん！ ❌";
+                msg.style.color = "#f44336";
+                playSound('incorrect');
+                speakText("ざんねん！");
+            }
 
             setTimeout(() => {
-                resultOverlay.style.display = 'none';
-                currentQIndex++;
+                currentId++;
                 loadQuestion();
-            }, 3000);
+            }, 2200);
+        }
+
+        function showResults() {
+            qChange.style.display = "none";
+            choicesSection.style.display = "none";
+            msg.style.display = "none";
+
+            let rate = Math.round((correctCount / quizData.length) * 100);
+            
+            const now = new Date();
+            document.getElementById("print-date").innerText = `実施日：${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+            document.getElementById("resRate").innerText = `正答率：${rate}％`;
+            document.getElementById("resCount").innerText = `${quizData.length}問 中 ${correctCount}問 せいかい！`;
+            
+            const tableBody = document.getElementById("result-table-body");
+            tableBody.innerHTML = ""; 
+            userRecords.forEach(rec => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${rec.id}</td>
+                    <td style="font-size:16px; font-weight:bold; text-align:left;">${rec.question}</td>
+                    <td>${rec.userAns}</td>
+                    <td>${rec.correctAns}</td>
+                    <td class="${rec.isCorrect ? 'is-correct' : 'is-incorrect'}">${rec.isCorrect ? '〇' : '×'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            document.getElementById("result-section").style.display = "block";
+            speakText(`クイズおわり！よくがんばったね。正答率は、${rate}パーセントでした！`);
         }
     </script>
 </body>
