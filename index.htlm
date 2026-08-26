@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アイヌ文化 ミニテスト（タッチ・ノータッチ選択版）</title>
+    <style>
+        body {
+            font-family: "Hiragino Kaku Gothic Pro", "Meiryo", sans-serif;
+            background-color: #e0f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        #app-container {
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            padding: 25px;
+            text-align: center;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        ruby { ruby-align: center; }
+        rt { font-size: 0.55em; color: #00695c; font-weight: bold; }
+
+        .title {
+            font-size: 30px;
+            font-weight: bold;
+            color: #00838f;
+            margin-bottom: 15px;
+        }
+
+        /* 問題文ボックス（左揃え） */
+        .question-box {
+            background-color: #f4fbfb;
+            border: 2px solid #b2f2e8;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .question-text {
+            font-size: 26px;
+            font-weight: bold;
+            line-height: 1.7;
+            color: #222;
+        }
+
+        /* タイマー（カウントダウンバー） */
+        .timer-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #00bcd4;
+            transition: width 0.1s linear;
+        }
+
+        /* 2択選択肢エリア */
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .choice-card {
+            border-radius: 15px;
+            padding: 20px;
+            text-align: left;
+            font-weight: bold;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        /* 触らない場合の選択肢 (1) */
+        .choice-no-touch {
+            background-color: #e8f5e9;
+            border: 4px solid #4caf50;
+            color: #1b5e20;
+        }
+        .choice-no-touch .badge {
+            background-color: #4caf50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        /* タッチする場合の選択肢 (2) */
+        .choice-touch {
+            background-color: #fff3e0;
+            border: 4px solid #ff9800;
+            color: #e65100;
+        }
+        .choice-touch .badge {
+            background-color: #ff9800;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .choice-text {
+            font-size: 26px;
+        }
+
+        /* ボタン関係 */
+        .btn {
+            border: none;
+            border-radius: 15px;
+            padding: 15px 30px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.2);
+            color: white;
+        }
+        .btn-start { background-color: #4caf50; font-size: 30px; }
+        .btn-utility { font-size: 18px; padding: 10px 20px; border-radius: 10px; margin: 5px; }
+        .btn-read { background-color: #2196f3; }
+        .btn-print { background-color: #00bcd4; }
+        .btn-clear { background-color: #e91e63; }
+
+        #feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 220px;
+            font-weight: bold;
+            display: none;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .correct { color: #f44336; }
+        .incorrect { color: #2196f3; }
+
+        /* 結果テーブル */
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .result-table th, .result-table td {
+            border: 2px solid #b2dfdb;
+            padding: 12px;
+            text-align: left;
+        }
+        .result-table th { background-color: #e0f2f1; color: #00695c; text-align: center; }
+        .text-center { text-align: center !important; }
+        .status-ok { color: #d32f2f; font-weight: bold; font-size: 22px; }
+        .status-ng { color: #1976d2; font-weight: bold; font-size: 22px; }
+
+        .history-section {
+            margin-top: 30px;
+            border-top: 2px dashed #b2dfdb;
+            padding-top: 20px;
+            text-align: left;
+        }
+
+        .hidden { display: none !important; }
+
+        @media print {
+            body { background: white !important; padding: 0 !important; color: black !important; }
+            #app-container { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
+            .no-print, button, .btn, .btn-utility, .timer-container { display: none !important; }
+            #screen-start, #screen-quiz { display: none !important; }
+            #screen-result { display: block !important; }
+            .result-table th { background-color: #f0f0f0 !important; color: black !important; }
+            .result-table, .result-table td, .result-table th { border: 1px solid black !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- スタート画面 -->
+        <div id="screen-start">
+            <div class="title">アイヌ<ruby>文化<rt>ぶんか</rt></ruby> ミニテスト</div>
+            <p style="font-size: 22px; line-height: 1.6; margin-bottom: 25px;">
+                【えらびかた】<br>
+                触（さわ）らない ➔ <b>①ばん</b><br>
+                画面（がめん）をタッチ ➔ <b>②ばん</b>
+            </p>
+            <button class="btn btn-start" onclick="startGame()">画面をタッチして スタート！</button>
+        </div>
+
+        <!-- クイズ画面 -->
+        <div id="screen-quiz" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 22px; font-weight: bold; color: #00838f;" id="q-number"></span>
+                <button class="btn btn-utility btn-read" onclick="readQuestionAndChoices(event)">🔊 もういちど<ruby>読<rt>よ</rt></ruby>む</button>
+            </div>
+            
+            <div class="question-box">
+                <div class="question-text" id="q-text"></div>
+            </div>
+
+            <!-- カウントダウンバー -->
+            <div class="timer-container">
+                <div id="timer-bar" class="timer-bar"></div>
+            </div>
+
+            <div class="choices-container">
+                <!-- 選択肢 1 (触らない) -->
+                <div class="choice-card choice-no-touch" id="card-opt1">
+                    <div class="badge">⏳ そのまま触らないと これ！</div>
+                    <div class="choice-text" id="opt1-text"></div>
+                </div>
+
+                <!-- 選択肢 2 (タッチする) -->
+                <div class="choice-card choice-touch" id="card-opt2">
+                    <div class="badge">👆 画面をどこかタッチすると これ！</div>
+                    <div class="choice-text" id="opt2-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果画面 -->
+        <div id="screen-result" class="hidden">
+            <div class="title">アイヌ<ruby>文化<rt>ぶんか</rt></ruby> テスト<ruby>結果<rt>けっか</rt></ruby></div>
+            <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px;" id="result-date"></div>
+            <div style="font-size: 36px; font-weight: bold; color: #e65100; margin-bottom: 20px;" id="score-display"></div>
+
+            <h3>【 今回のテスト結果 】</h3>
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">問題</th>
+                        <th>内容</th>
+                        <th style="width: 20%;">判定</th>
+                    </tr>
+                </thead>
+                <tbody id="current-result-body"></tbody>
+            </table>
+
+            <div class="no-print" style="margin: 20px 0;">
+                <button class="btn btn-utility btn-print" onclick="window.print()">🖨️ 結果をいんさつする</button>
+                <button class="btn btn-utility btn-start" style="font-size: 20px; padding: 10px 20px;" onclick="location.reload()">🔄 もう一度テストをする</button>
+            </div>
+
+            <!-- 過去の記録 -->
+            <div class="history-section no-print">
+                <h3>📜 これまでの過去の記録</h3>
+                <div id="history-container"></div>
+                <button class="btn btn-utility btn-clear" style="margin-top: 15px;" onclick="clearHistory()">🗑️ 過去の記録をけす</button>
+            </div>
+        </div>
+
+        <!-- マルバツ表示 -->
+        <div id="feedback"></div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 制限時間の設定（ミリ秒）: 4000 = 4秒間触らなければ1番を選択
+        const ANSWER_TIMEOUT = 4000; 
+
+        const quizData = [
+            {
+                title: "動物や自然の呼び方",
+                q_html: "アイヌの<ruby>人<rt>ひと</rt></ruby>たちは、<ruby>動物<rt>どうぶつ</rt></ruby>や<ruby>自然<rt>しぜん</rt></ruby>などをなんと<ruby>呼<rt>よ</rt></ruby>んで<ruby>感謝<rt>かんしゃ</rt></ruby>しましたか？",
+                q_speech: "アイヌのひとたちは、どうぶつや、しぜんなどを、なんとよんで、かんしゃしましたか？",
+                choices: [
+                    { label: "１．オバケ", speech: "そのまま触らないと、1番、オバケ", isCorrect: false },
+                    { label: "２．カムイ", speech: "画面をタッチすると、2番、カムイ", isCorrect: true }
+                ]
+            },
+            {
+                title: "アイヌのあいさつ",
+                q_html: "アイヌの<ruby>言葉<rt>ことば</rt></ruby>で「こんにちは」などの<ruby>挨拶<rt>あいさつ</rt></ruby>はどれでしょう？",
+                q_speech: "アイヌのことばで、こんにちは、などのあいさつは、どれでしょう？",
+                choices: [
+                    { label: "１．イランカラプテ", speech: "そのまま触らないと、1番、イランカラプテ", isCorrect: true },
+                    { label: "２．ボンジュール", speech: "画面をタッチすると、2番、ボンジュール", isCorrect: false }
+                ]
+            },
+            {
+                title: "アイヌが住んでいた場所",
+                q_html: "アイヌの<ruby>人<rt>ひと</rt></ruby>たちが<ruby>古<rt>ふる</rt></ruby>くからたくさん<ruby>住<rt>す</rt></ruby>んでいたのはどこでしょう？",
+                q_speech: "アイヌのひとたちが、ふるくからたくさんすんでいたのは、どこでしょう？",
+                choices: [
+                    { label: "１．<ruby>沖縄<rt>おきなわ</rt></ruby>", speech: "そのまま触らないと、1番、おきなわ", isCorrect: false },
+                    { label: "２．<ruby>北海道<rt>ほっかいどう</rt></ruby>", speech: "画面をタッチすると、2番、ほっかいどう", isCorrect: true }
+                ]
+            },
+            {
+                title: "魔除けのデザイン",
+                q_html: "アイヌの<ruby>服<rt>ふく</rt></ruby>などに入っている、<ruby>魔除<rt>まよ</rt></ruby>けの<ruby>意味<rt>いみ</rt></ruby>があるデザインはどれですか？",
+                q_speech: "アイヌのふくなどに、はいっている、まよけのいみがあるデザインは、どれですか？",
+                choices: [
+                    { label: "１．<ruby>渦巻<rt>うずま</rt></ruby>き<ruby>模様<rt>もよう</rt></ruby>", speech: "そのまま触らないと、1番、うずまきもよう", isCorrect: false },
+                    { label: "２．アイヌもよう", speech: "画面をタッチすると、2番、アイヌもよう", isCorrect: true }
+                ]
+            },
+            {
+                title: "カリプペカプの目的",
+                q_html: "「カリプペカプ」は、アイヌの<ruby>子<rt>こ</rt></ruby>どもたちが、<ruby>何<rt>なに</rt></ruby>のためにやっていましたか？",
+                q_speech: "カリプペカプは、アイヌのこどもたちが、なんのためにやっていましたか？",
+                choices: [
+                    { label: "１．<ruby>魚<rt>さかな</rt></ruby>や<ruby>動物<rt>どうぶつ</rt></ruby>を<ruby>獲<rt>と</rt></ruby>るため", speech: "そのまま触らないと、1番、さかなやどうぶつをとるため", isCorrect: true },
+                    { label: "２．<ruby>料理<rt>りょうり</rt></ruby>が<ruby>上手<rt>じょうず</rt></ruby>になるため", speech: "画面をタッチすると、2番、りょうりがじょうずになるため", isCorrect: false }
+                ]
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let canAcceptInput = false; // タッチ受付可能フラグ
+        let currentResults = [];
+        let timerId = null;
+        let timerAnimId = null;
+
+        function startGame() {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.remove('hidden');
+            
+            // 画面全体のタッチイベント登録
+            document.addEventListener('pointerdown', handleScreenTouch);
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            canAcceptInput = false;
+            stopTimer();
+
+            const q = quizData[currentQuestionIndex];
+            
+            document.getElementById('q-number').innerText = `第 ${currentQuestionIndex + 1} 問 / 全 5 問`;
+            document.getElementById('q-text').innerHTML = q.q_html;
+            document.getElementById('opt1-text').innerHTML = q.choices[0].label;
+            document.getElementById('opt2-text').innerHTML = q.choices[1].label;
+            document.getElementById('timer-bar').style.width = '100%';
+
+            readQuestionAndChoices();
+        }
+
+        function readQuestionAndChoices(e) {
+            if(e) e.stopPropagation(); // ボタンのアクションでタッチ判定が走らないように保護
+            if (!window.speechSynthesis) return;
+            
+            window.speechSynthesis.cancel();
+            canAcceptInput = false;
+            stopTimer();
+            document.getElementById('timer-bar').style.width = '100%';
+
+            const q = quizData[currentQuestionIndex];
+            let textToSpeak = q.q_speech + "。" + q.choices[0].speech + "。" + q.choices[1].speech + "。";
+            
+            const uttr = new SpeechSynthesisUtterance(textToSpeak);
+            uttr.lang = 'ja-JP';
+            uttr.rate = 0.85;
+
+            // 読み上げ完了後に受付開始＆タイマー起動
+            uttr.onend = () => { startAnswerTimer(); };
+            uttr.onerror = () => { startAnswerTimer(); };
+
+            window.speechSynthesis.speak(uttr);
+        }
+
+        // タイマー開始（触らなければ選択肢1を選ぶ）
+        function startAnswerTimer() {
+            canAcceptInput = true;
+            const startTime = Date.now();
+            const timerBar = document.getElementById('timer-bar');
+
+            function updateBar() {
+                const elapsed = Date.now() - startTime;
+                const remainingRatio = Math.max(0, 1 - (elapsed / ANSWER_TIMEOUT));
+                timerBar.style.width = (remainingRatio * 100) + '%';
+
+                if (remainingRatio > 0 && canAcceptInput) {
+                    timerAnimId = requestAnimationFrame(updateBar);
+                }
+            }
+            timerAnimId = requestAnimationFrame(updateBar);
+
+            timerId = setTimeout(() => {
+                if (canAcceptInput) {
+                    // 時間切れ ➔ 触らなかったので「選択肢１」を選択
+                    selectOption(0);
+                }
+            }, ANSWER_TIMEOUT);
+        }
+
+        function stopTimer() {
+            if (timerId) clearTimeout(timerId);
+            if (timerAnimId) cancelAnimationFrame(timerAnimId);
+        }
+
+        // 画面全体のタッチハンドラ
+        function handleScreenTouch(e) {
+            // 受付時間外、または特定のコントロールボタンのタッチは無視
+            if (!canAcceptInput) return;
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+
+            // 画面がタッチされた ➔ 「選択肢２」を選択
+            selectOption(1);
+        }
+
+        function selectOption(choiceIndex) {
+            canAcceptInput = false;
+            stopTimer();
+            window.speechSynthesis.cancel();
+
+            const isCorrect = quizData[currentQuestionIndex].choices[choiceIndex].isCorrect;
+
+            currentResults.push({
+                qNum: currentQuestionIndex + 1,
+                title: quizData[currentQuestionIndex].title,
+                isCorrect: isCorrect
+            });
+
+            const feedback = document.getElementById('feedback');
+            feedback.style.display = 'block';
+
+            if (isCorrect) {
+                score++;
+                feedback.innerHTML = '⭕️';
+                feedback.className = 'correct';
+                playSound('correct');
+            } else {
+                feedback.innerHTML = '❌';
+                feedback.className = 'incorrect';
+                playSound('incorrect');
+            }
+
+            setTimeout(() => {
+                feedback.style.display = 'none';
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quizData.length) {
+                    showQuestion();
+                } else {
+                    showResult();
+                }
+            }, 1200);
+        }
+
+        function showResult() {
+            document.removeEventListener('pointerdown', handleScreenTouch);
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-result').classList.remove('hidden');
+            
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            document.getElementById('result-date').innerText = `実施日時：${dateStr}`;
+            document.getElementById('score-display').innerText = `５問中 ${score} 問 正解！`;
+
+            const tbody = document.getElementById('current-result-body');
+            tbody.innerHTML = '';
+            currentResults.forEach(res => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="text-center">第 ${res.qNum} 問</td>
+                    <td>${res.title}</td>
+                    <td class="text-center">${res.isCorrect ? '<span class="status-ok">⭕️ 正解</span>' : '<span class="status-ng">❌ 間違い</span>'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            saveToStorage(dateStr, score, currentResults);
+            renderHistory();
+
+            if (window.speechSynthesis) {
+                const uttr = new SpeechSynthesisUtterance(`おつかれさまでした。5もんちゅう、${score}もんせいかいです！`);
+                uttr.lang = 'ja-JP';
+                window.speechSynthesis.speak(uttr);
+            }
+        }
+
+        function saveToStorage(date, score, details) {
+            let records = JSON.parse(localStorage.getItem('ainu_quiz_history') || '[]');
+            records.unshift({ date, score, details });
+            localStorage.setItem('ainu_quiz_history', JSON.stringify(records));
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            let records = JSON.parse(localStorage.getItem('ainu_quiz_history') || '[]');
+
+            if (records.length === 0) {
+                container.innerHTML = '<p>過去の記録はありません。</p>';
+                return;
+            }
+
+            let html = '<table class="result-table"><thead><tr><th>日時</th><th>得点</th></tr></thead><tbody>';
+            records.forEach(r => {
+                html += `<tr><td>${r.date}</td><td class="text-center">5問中 <strong>${r.score}</strong> 問正解</td></tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function clearHistory() {
+            if (confirm("これまでの過去の記録をすべてけしますか？")) {
+                localStorage.removeItem('ainu_quiz_history');
+                renderHistory();
+            }
+        }
+
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } else if (type === 'incorrect') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            }
+        }
+    </script>
+</body>
+</html>
